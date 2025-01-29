@@ -2,7 +2,6 @@
 
 #ifdef _WIN32
 #include <winsock2.h> // Core Sockets (Windows)
-#pragma comment(lib, "ws2_32.lib") // Links Winsock Library
 #else
 #include <sys/socket.h> // Core Sockets (Linux)
 #endif
