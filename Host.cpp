@@ -35,7 +35,16 @@ SocketInfo createSocketWindows() {
 
 void connectClientWindows(SOCKET clientSocket, sockaddr_in serverAddress) {
     if (connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) { // Connects to Open Server Socket
-        std::cerr << "Socket connection failed: " << WSAGetLastError() << std::endl;
+        int errorCode = WSAGetLastError();
+        if (errorCode == WSAECONNREFUSED) {
+            std::cerr << "Connection was refused by the server." << std::endl;
+        }
+        else if (errorCode == WSAETIMEDOUT) {
+            std::cerr << "Connection timed out." << std::endl;
+        }
+        else {
+            std::cerr << "Unknown error: " << errorCode << std::endl;
+        }
         closesocket(clientSocket); // Closes Socket
         WSACleanup(); // Terminates Winsock
         exit(1);
