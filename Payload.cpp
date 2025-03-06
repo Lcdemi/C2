@@ -87,8 +87,7 @@ int main(int argc, char* argv[]) {
     int port = DEFAULT_PORT;
 
     // Parse command-line arguments
-    if (argc > 1) { clientIP = argv[1]; } // Set Server IP
-    if (argc > 2) { port = atoi(argv[2]); } // Set Port
+    if (argc > 1) { port = atoi(argv[1]); } // Set Port
 
     std::cout << "Client IP: " << clientIP << std::endl;
     std::cout << "Port: " << port << std::endl;
@@ -100,7 +99,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Running on Windows" << std::endl;
     socketInfo = createSocketWindows();
     socketInfo.serverAddress.sin_port = htons(static_cast<u_short>(port)); // Set Port
-    socketInfo.serverAddress.sin_addr.s_addr = inet_addr(clientIP.c_str()); // Set Server IP
+    socketInfo.serverAddress.sin_addr.s_addr = INADDR_ANY; // Accepts connections from any interface
     connectSocketWindows(static_cast<SOCKET>(socketInfo.windowsClientSocket), socketInfo.serverAddress);
     return 0;
 }
