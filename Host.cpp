@@ -49,6 +49,7 @@ void connectClientWindows(SOCKET clientSocket, sockaddr_in serverAddress) {
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
+    std::cout << "Client Connected!" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -63,7 +64,6 @@ int main(int argc, char* argv[]) {
     std::cout << "Connecting to Server IP: " << serverIP << " on Port: " << port << std::endl;
 
     SocketInfo socketInfo;
-    std::cout << "Running on Windows" << std::endl;
     socketInfo = createSocketWindows();
     socketInfo.serverAddress.sin_port = htons(static_cast<u_short>(port)); // Set Server Port
     socketInfo.serverAddress.sin_addr.s_addr = inet_addr(serverIP.c_str()); // Set Server IP
