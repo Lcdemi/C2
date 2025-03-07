@@ -46,6 +46,7 @@ SocketInfo createSocketWindows() {
     }
 
     sockaddr_in serverAddress; // Stores Address of Socket
+    serverAddress.sin_addr.s_addr = INADDR_ANY; // Accepts connections from any IP
     serverAddress.sin_family = AF_INET; // IPv4
 
     std::cout << "Socket created!" << std::endl;
