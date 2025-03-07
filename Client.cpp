@@ -3,7 +3,7 @@
 
 #define DEFAULT_SERVER_IP "127.0.0.1"
 #define DEFAULT_PORT 1024
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 15000
 
 struct SocketInfo {
     SOCKET clientSocket;
