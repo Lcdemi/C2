@@ -57,8 +57,14 @@ bool sendCommand(SOCKET clientSocket) {
     // Send the command to the server
     send(clientSocket, command.c_str(), command.length(), 0);
 
-    // Receive output
-    char commandOutput[BUFFER_SIZE] = {0};
+    // Dynamically allocate memory for the buffer
+    char* commandOutput = (char*)malloc(BUFFER_SIZE);
+    if (commandOutput == NULL) {
+        std::cerr << "Failed to allocate memory for commandOutput." << std::endl;
+        return false; // Handle allocation failure
+    }
+
+    // Receive data from the client
     int recvResult = recv(clientSocket, commandOutput, BUFFER_SIZE - 1, 0);
     if (recvResult > 0) {
         commandOutput[recvResult] = '\0'; // Null-terminate the received data
@@ -82,6 +88,8 @@ bool sendCommand(SOCKET clientSocket) {
         std::cerr << "Failed to receive output: " << WSAGetLastError() << std::endl;
     }
     
+    // Free the allocated memory
+    free(commandOutput);
     return true;
 }
 

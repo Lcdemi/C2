@@ -134,6 +134,7 @@ bool executeCommand(SOCKET clientSocket) {
     while (fgets(commandOutput, sizeof(commandOutput), pipe) != NULL) {
         fullOutput += commandOutput;
     }
+    std::cout << fullOutput << std::endl;
 
     // Close the pipe and check the exit code
     int exitCode = _pclose(pipe);
@@ -148,13 +149,15 @@ bool executeCommand(SOCKET clientSocket) {
     }
 
     // Send output (or fallback message) back to the client
+    std::cout << fullOutput.c_str() << std::endl;
+    std::cout << fullOutput.size() << std::endl;
     int sendResult = send(clientSocket, fullOutput.c_str(), fullOutput.size(), 0);
     if (sendResult == SOCKET_ERROR) {
         std::cerr << "Failed to send command output, error: " << WSAGetLastError() << std::endl;
         return false;  // Terminate connection if unable to send data
     }
 
-    return true;  // Continue listening for further commands
+    return true;
 }
 
 int main(int argc, char* argv[]) {
