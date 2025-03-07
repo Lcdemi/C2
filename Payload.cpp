@@ -101,12 +101,12 @@ bool executeCommand(SOCKET clientSocket) {
         }
         return false;  // Terminate connection
     }
-    
+
     if (recvResult == 0) {
         std::cerr << "Client Gracefully disconnected (no data received)" << std::endl;
         return false;  // Client closed connection
     }
-    
+
     buffer[recvResult] = '\0';  // Null-terminate received data
     std::cout << "Received command: " << buffer << std::endl;
 
@@ -117,10 +117,17 @@ bool executeCommand(SOCKET clientSocket) {
         return false;  // End loop if exit command received
     }
 
+    // Validate the command input (e.g., ensure it is not empty or malicious)
+    if (strlen(buffer) == 0) {
+        const char* errorMsg = "Invalid command. Please try again.\n";
+        send(clientSocket, errorMsg, strlen(errorMsg), 0);
+        return true;  // Continue listening for further commands
+    }
+
     // Execute the command
     FILE* pipe = _popen(buffer, "r");
     if (!pipe) {
-        const char* errorMsg = "Failed to execute command\n";
+        const char* errorMsg = "Failed to execute command. Ensure the command is valid.\n";
         send(clientSocket, errorMsg, strlen(errorMsg), 0);
         return true;  // Continue listening for further commands
     }

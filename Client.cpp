@@ -43,26 +43,35 @@ void connectClient(SOCKET clientSocket, sockaddr_in serverAddress, int port) {
     std::cout << "Connected to server!" << std::endl;
 }
 
-void sendCommand(SOCKET clientSocket) {
+bool sendCommand(SOCKET clientSocket) {
     std::string command;
     std::cout << "Enter command to execute (type 'exit' to quit): ";
-    std::cin >> command;
+    std::getline(std::cin, command);  // Use getline to capture full command with spaces
 
     if (command == "exit") {
         send(clientSocket, "exit", 4, 0); // Sending exit signal to the server
         std::cout << "Exiting client." << std::endl;
-        return;  // Exit the function
+        return false;  // Exit the function to terminate
     }
+
+    // Send the command to the server
+    send(clientSocket, command.c_str(), command.length(), 0);
 
     // Receive output
     char buffer[BUFFER_SIZE] = {0};
     int recvResult = recv(clientSocket, buffer, BUFFER_SIZE - 1, 0);
     if (recvResult > 0) {
-        buffer[recvResult] = '\0';
+        buffer[recvResult] = '\0'; // Null-terminate the received data
         std::cout << "Command output:\n" << buffer << std::endl;
+        // Optionally, check if the output contains an error message
+        if (strstr(buffer, "Invalid command") != NULL) {
+            std::cerr << "Error: Invalid command received from server." << std::endl;
+        }
     } else {
         std::cerr << "Failed to receive output: " << WSAGetLastError() << std::endl;
     }
+    
+    return true;
 }
 
 int main(int argc, char* argv[]) {
@@ -79,9 +88,14 @@ int main(int argc, char* argv[]) {
     socketInfo.serverAddress.sin_addr.s_addr = inet_addr(serverIP.c_str()); // Set Server IP
     connectClient(socketInfo.clientSocket, socketInfo.serverAddress, port);
 
-    while (true) {
-        sendCommand(socketInfo.clientSocket);
+    bool continueRunning = true;
+    while (continueRunning) {
+        continueRunning = sendCommand(socketInfo.clientSocket);  // Continuously send commands
     }
+
+    // Cleanup socket and Winsock on exit
+    closesocket(socketInfo.clientSocket);
+    WSACleanup();
 
     return 0;
 }
