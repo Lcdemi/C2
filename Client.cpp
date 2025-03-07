@@ -45,10 +45,14 @@ void connectClient(SOCKET clientSocket, sockaddr_in serverAddress, int port) {
 
 void sendCommand(SOCKET clientSocket) {
     std::string command;
-    std::cout << "Enter command to execute: ";
-    std::getline(std::cin, command);
+    std::cout << "Enter command to execute (type 'exit' to quit): ";
+    std::cin >> command;
 
-    send(clientSocket, command.c_str(), command.length(), 0);
+    if (command == "exit") {
+        send(clientSocket, "exit", 4, 0); // Sending exit signal to the server
+        std::cout << "Exiting client." << std::endl;
+        return;  // Exit the function
+    }
 
     // Receive output
     char buffer[BUFFER_SIZE] = {0};
@@ -75,7 +79,9 @@ int main(int argc, char* argv[]) {
     socketInfo.serverAddress.sin_addr.s_addr = inet_addr(serverIP.c_str()); // Set Server IP
     connectClient(socketInfo.clientSocket, socketInfo.serverAddress, port);
 
-    sendCommand(socketInfo.clientSocket);
+    while (true) {
+        sendCommand(socketInfo.clientSocket);
+    }
 
     return 0;
 }

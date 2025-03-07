@@ -53,7 +53,7 @@ SocketInfo createServerSocket() {
     return {serverSocket, serverAddress};
 }
 
-void acceptClientConnection(SOCKET serverSocket, sockaddr_in serverAddress, int port) {
+SOCKET acceptClientConnection(SOCKET serverSocket, sockaddr_in& serverAddress, int port) {
     serverAddress.sin_port = htons(static_cast<u_short>(port)); // Set Port
 
     if (bind(serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) { // Binds Socket to Address
@@ -83,38 +83,64 @@ void acceptClientConnection(SOCKET serverSocket, sockaddr_in serverAddress, int 
     }
 
     std::cout << "Server socket accepted client connection!" << std::endl;
+    return clientSocket;
 }
 
-void executeCommand(SOCKET clientSocket) {
+bool executeCommand(SOCKET clientSocket) {
     char buffer[BUFFER_SIZE] = {0};
-    
+
     // Receive command from client
     int recvResult = recv(clientSocket, buffer, BUFFER_SIZE - 1, 0);
-    if (recvResult > 0) {
-        buffer[recvResult] = '\0';  // Null-terminate received data
-        std::cout << "Received command: " << buffer << std::endl;
 
-        // Execute command
-        FILE* pipe = _popen(buffer, "r");
-        if (!pipe) {
-            const char* errorMsg = "Failed to execute command\n";
-            send(clientSocket, errorMsg, strlen(errorMsg), 0);
-            return;
+    if (recvResult == SOCKET_ERROR) {
+        int errorCode = WSAGetLastError();
+        if (errorCode == WSAECONNRESET) {
+            std::cerr << "Connection reset by client. Closing connection." << std::endl;
+        } else {
+            std::cerr << "Failed to receive command, error: " << errorCode << std::endl;
         }
-
-        // Read output of the command
-        char commandOutput[BUFFER_SIZE];
-        std::string fullOutput;
-        while (fgets(commandOutput, BUFFER_SIZE, pipe) != NULL) {
-            fullOutput += commandOutput;
-        }
-        _pclose(pipe);
-
-        // Send output back to client
-        send(clientSocket, fullOutput.c_str(), fullOutput.size(), 0);
-    } else {
-        std::cerr << "Failed to receive command: " << WSAGetLastError() << std::endl;
+        return false;  // Terminate connection
     }
+    
+    if (recvResult == 0) {
+        std::cerr << "Client Gracefully disconnected (no data received)" << std::endl;
+        return false;  // Client closed connection
+    }
+    
+    buffer[recvResult] = '\0';  // Null-terminate received data
+    std::cout << "Received command: " << buffer << std::endl;
+
+    // Check for "exit" command
+    if (strcmp(buffer, "exit") == 0) {
+        const char* exitMessage = "Exiting...\n";
+        send(clientSocket, exitMessage, strlen(exitMessage), 0);
+        return false;  // End loop if exit command received
+    }
+
+    // Execute the command
+    FILE* pipe = _popen(buffer, "r");
+    if (!pipe) {
+        const char* errorMsg = "Failed to execute command\n";
+        send(clientSocket, errorMsg, strlen(errorMsg), 0);
+        return true;  // Continue listening for further commands
+    }
+
+    // Read output of the command
+    char commandOutput[BUFFER_SIZE];
+    std::string fullOutput;
+    while (fgets(commandOutput, BUFFER_SIZE, pipe) != NULL) {
+        fullOutput += commandOutput;
+    }
+    _pclose(pipe);
+
+    // Send output back to client
+    int sendResult = send(clientSocket, fullOutput.c_str(), fullOutput.size(), 0);
+    if (sendResult == SOCKET_ERROR) {
+        std::cerr << "Failed to send command output, error: " << WSAGetLastError() << std::endl;
+        return false;  // Terminate connection if unable to send data
+    }
+
+    return true;  // Continue listening for further commands
 }
 
 int main(int argc, char* argv[]) {
@@ -132,10 +158,19 @@ int main(int argc, char* argv[]) {
 
     // Create and bind server socket
     SocketInfo socketInfo = createServerSocket();
-    acceptClientConnection(socketInfo.serverSocket, socketInfo.serverAddress, port);
+    // Start listening for clients and accept connections
+    SOCKET clientSocket = acceptClientConnection(socketInfo.serverSocket, socketInfo.serverAddress, port);
+    
+    // Command Execution Loop
+    bool continueRunning = true;
+    while (clientSocket != INVALID_SOCKET && continueRunning) {
+        continueRunning = executeCommand(clientSocket);
+    }
 
-    // Execute command from client
-    executeCommand(socketInfo.serverSocket);
+    // Close client socket after communication
+    closesocket(clientSocket);
+    WSACleanup();
+    std::cout << "Closing Socket Connection" << std::endl;
 
     return 0;
 }
