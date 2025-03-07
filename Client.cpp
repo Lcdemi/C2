@@ -58,16 +58,27 @@ bool sendCommand(SOCKET clientSocket) {
     send(clientSocket, command.c_str(), command.length(), 0);
 
     // Receive output
-    char buffer[BUFFER_SIZE] = {0};
-    int recvResult = recv(clientSocket, buffer, BUFFER_SIZE - 1, 0);
+    char commandOutput[BUFFER_SIZE] = {0};
+    int recvResult = recv(clientSocket, commandOutput, BUFFER_SIZE - 1, 0);
     if (recvResult > 0) {
-        buffer[recvResult] = '\0'; // Null-terminate the received data
-        std::cout << "Command output:\n" << buffer << std::endl;
-        // Optionally, check if the output contains an error message
-        if (strstr(buffer, "Invalid command") != NULL) {
-            std::cerr << "Error: Invalid command received from server." << std::endl;
+        commandOutput[recvResult] = '\0'; // Null-terminate the received data
+
+        // Check if there's any meaningful output
+        if (strlen(commandOutput) == 0) {  // Use strlen since this is a C-style array
+            std::cout << "Command output: [No output received]\n";
+        } else {
+            std::cout << "Command output:\n" << commandOutput << std::endl;
+
+            // Optionally, check if the output contains a known error message
+            if (strstr(commandOutput, "Invalid command") != NULL) {
+                std::cerr << "Error: Invalid command received from server." << std::endl;
+            }
         }
+    } else if (recvResult == 0) {
+        // Graceful disconnection by the server
+        std::cerr << "Server has closed the connection." << std::endl;
     } else {
+        // Failure in receiving data
         std::cerr << "Failed to receive output: " << WSAGetLastError() << std::endl;
     }
     

