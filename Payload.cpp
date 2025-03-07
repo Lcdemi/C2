@@ -6,7 +6,7 @@
 #define DEFAULT_CLIENT_IP "127.0.0.1"
 #define DEFAULT_SERVER_IP "127.0.0.1"
 #define DEFAULT_PORT 1024
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 15000
 
 struct SocketInfo {
     SOCKET serverSocket;
@@ -129,7 +129,11 @@ bool executeCommand(SOCKET clientSocket) {
     }
 
     // Read output of the command
-    char commandOutput[BUFFER_SIZE];
+    char* commandOutput = (char*)malloc(BUFFER_SIZE);
+    if (commandOutput == NULL) {
+        std::cerr << "Failed to allocate memory for commandOutput." << std::endl;
+        return false; // Handle allocation failure
+    }
     std::string fullOutput;
     while (fgets(commandOutput, sizeof(commandOutput), pipe) != NULL) {
         fullOutput += commandOutput;
@@ -157,6 +161,7 @@ bool executeCommand(SOCKET clientSocket) {
         return false;  // Terminate connection if unable to send data
     }
 
+    free(commandOutput);
     return true;
 }
 
