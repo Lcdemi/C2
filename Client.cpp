@@ -1,8 +1,8 @@
 #include <iostream>
 #include <winsock2.h> // Core Sockets (Windows)
 
-#define DEFAULT_SERVER_IP "127.0.0.1"
 #define DEFAULT_PORT 1024
+#define DEFAULT_TARGET_IP "127.0.0.1"
 #define BUFFER_SIZE 15000
 
 struct SocketInfo {
@@ -94,17 +94,20 @@ bool sendCommand(SOCKET clientSocket) {
 }
 
 int main(int argc, char* argv[]) {
-    std::string serverIP = DEFAULT_SERVER_IP;
+    std::string targetIP = DEFAULT_TARGET_IP;
     int port = DEFAULT_PORT;
 
     // Parse command-line arguments
-    if (argc > 1) { serverIP = argv[1]; }
-    if (argc > 2) { port = atoi(argv[2]); }
-
-    std::cout << "Connecting to Server IP: " << serverIP << " on Port: " << port << std::endl;
+    if (argc > 2) { 
+        targetIP = argv[1]; port = atoi(argv[2]); 
+    } else {
+        std::cout << "C2 requires at least 2 arguments" << std::endl; return 0;
+    }
+    
+    std::cout << "Connecting to Server IP: " << targetIP << " on Port: " << port << std::endl;
 
     SocketInfo socketInfo = createClientSocket();
-    socketInfo.serverAddress.sin_addr.s_addr = inet_addr(serverIP.c_str()); // Set Server IP
+    socketInfo.serverAddress.sin_addr.s_addr = inet_addr(targetIP.c_str()); // Set Server IP
     connectClient(socketInfo.clientSocket, socketInfo.serverAddress, port);
 
     bool continueRunning = true;
